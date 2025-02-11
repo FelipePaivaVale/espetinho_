@@ -10,6 +10,7 @@ export default function NewOrder() {
   const [selectedItem, setSelectedItem] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState(''); // Estado para o termo de pesquisa
 
   useEffect(() => {
     fetchMenuItems();
@@ -22,7 +23,7 @@ export default function NewOrder() {
         .select('*')
         .eq('active', true)
         .order('category', { ascending: true });
-        console.log(data)
+
       if (error) throw error;
       setMenuItems(data || []);
     } catch (error) {
@@ -38,16 +39,13 @@ export default function NewOrder() {
       alert('Por favor selecione um item do cardápio');
       return;
     }
-    console.log(selectedItem)
+
     if (quantity < 1) {
       alert('A quantidade deve ser maior que zero');
       return;
     }
-    console.log(menuItems)
-    menuItems.forEach(item => console.log(item.id));
 
-    const menuItem = menuItems.find(item => item.id == selectedItem);
-    console.log(menuItem)
+    const menuItem = menuItems.find(item => item.id === selectedItem);
     if (!menuItem) {
       alert('Item não encontrado no cardápio');
       return;
@@ -79,20 +77,20 @@ export default function NewOrder() {
       alert('Por favor informe o número da mesa');
       return;
     }
-  
+
     if (items.length === 0) {
       alert('Por favor adicione pelo menos um item ao pedido');
       return;
     }
-  
+
     if (loading) {
       return; // Previne múltiplos envios
     }
-  
+
     try {
       setLoading(true);
       const total = calculateTotal();
-  
+
       const { error } = await supabase
         .from('orders')
         .insert([{
@@ -101,9 +99,9 @@ export default function NewOrder() {
           status: 'pending',
           total: total
         }]);
-  
+
       if (error) throw error;
-  
+
       setTableNumber('');
       setItems([]);
       setSelectedItem('');
@@ -117,87 +115,110 @@ export default function NewOrder() {
     }
   };
 
+  // Função para filtrar os itens do menu com base no termo de pesquisa
+  const filteredMenuItems = menuItems.filter(item =>
+    item.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
-    <div className="max-w-md mx-auto p-6">
-      <h1 className="text-2xl font-bold text-center mb-6">Novo Pedido</h1>
-      
+    <div className="max-w-md mx-auto p-6 bg-gray-50 rounded-xl shadow-lg">
+      <h1 className="text-2xl font-bold text-center mb-6 text-gray-800">Novo Pedido</h1>
+  
       <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Número da Mesa */}
         <div>
-          <label className="block text-sm font-medium text-gray-700">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
             Número da Mesa
           </label>
           <input
             type="number"
             value={tableNumber}
             onChange={(e) => setTableNumber(e.target.value)}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition duration-200"
             min="1"
             required
           />
         </div>
-
-        <div className="bg-white p-4 rounded-lg shadow-sm">
+  
+        {/* Seleção de Itens e Quantidade */}
+        <div className="bg-white p-6 rounded-lg shadow-md">
           <div className="grid grid-cols-2 gap-4 mb-4">
+            {/* Barra de Pesquisa e Lista de Itens */}
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 Item
               </label>
-              <select
-                value={selectedItem}
-                onChange={(e) => setSelectedItem(e.target.value)}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-              >
-                <option value="">Selecione um item</option>
-                {menuItems.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name} - R$ {item.price.toFixed(2)}
-                  </option>
+              <input
+                type="text"
+                placeholder="Pesquisar item..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition duration-200"
+              />
+              {/* Lista de Itens Filtrados */}
+              <div className="mt-2 max-h-40 overflow-y-auto border border-gray-200 rounded-md">
+                {filteredMenuItems.map((item) => (
+                  <div
+                    key={item.id}
+                    onClick={() => setSelectedItem(item.id)}
+                    className={`p-2 cursor-pointer hover:bg-blue-50 transition duration-200 ${
+                      selectedItem === item.id ? 'bg-blue-100 border-l-4 border-blue-500' : 'border-l-4 border-transparent'
+                    }`}
+                  >
+                    <span className="font-medium text-gray-800">{item.name}</span>
+                    <span className="block text-sm text-gray-600">R$ {item.price.toFixed(2)}</span>
+                  </div>
                 ))}
-              </select>
+              </div>
             </div>
-            
+  
+            {/* Quantidade */}
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 Quantidade
               </label>
               <input
                 type="number"
                 value={quantity}
-                onChange={(e) => setQuantity(Math.max(parseInt(e.target.value)))}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition duration-200"
                 min="1"
               />
             </div>
           </div>
-
+  
+          {/* Botão de Adicionar Item */}
           <button
             type="button"
             onClick={addItem}
-            className="w-full flex items-center justify-center py-2 text-blue-600 hover:text-blue-800"
+            className="w-full flex items-center justify-center py-2 px-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-md shadow-md hover:from-blue-600 hover:to-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200"
           >
-            <PlusCircle size={24} className="mr-2" />
+            <PlusCircle size={20} className="mr-2" />
             Adicionar ao Pedido
           </button>
         </div>
-
+  
+        {/* Lista de Itens Adicionados */}
         <div className="space-y-4">
           {items.map((item, index) => (
-            <div key={index} className="flex items-center justify-between bg-white p-3 rounded-lg shadow-sm">
+            <div
+              key={index}
+              className="flex items-center justify-between bg-white p-4 rounded-lg shadow-sm hover:shadow-md transition duration-200"
+            >
               <div>
-                <span className="font-medium">{item.name}</span>
+                <span className="font-medium text-gray-800">{item.name}</span>
                 <div className="text-sm text-gray-600">
                   {item.quantity}x R$ {item.price.toFixed(2)}
                 </div>
               </div>
-              
               <div className="flex items-center">
-                <span className="mr-4 font-medium">
+                <span className="mr-4 font-medium text-gray-800">
                   R$ {(item.quantity * item.price).toFixed(2)}
                 </span>
                 <button
                   type="button"
                   onClick={() => removeItem(index)}
-                  className="text-red-600 hover:text-red-800"
+                  className="text-red-500 hover:text-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition duration-200"
                 >
                   <MinusCircle size={20} />
                 </button>
@@ -205,19 +226,21 @@ export default function NewOrder() {
             </div>
           ))}
         </div>
-
+  
+        {/* Total do Pedido */}
         {items.length > 0 && (
-          <div className="bg-white p-4 rounded-lg shadow-sm">
-            <div className="text-xl font-bold text-right">
+          <div className="bg-white p-4 rounded-lg shadow-md">
+            <div className="text-xl font-bold text-right text-gray-800">
               Total: R$ {calculateTotal().toFixed(2)}
             </div>
           </div>
         )}
-
+  
+        {/* Botão de Enviar Pedido */}
         <button
           type="submit"
           disabled={loading}
-          className="w-full flex items-center justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full flex items-center justify-center py-2 px-4 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-md shadow-md hover:from-green-600 hover:to-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Send size={20} className="mr-2" />
           {loading ? 'Enviando...' : 'Enviar Pedido'}
