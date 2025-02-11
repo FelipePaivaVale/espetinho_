@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { PlusCircle, MinusCircle, Send, Search } from 'lucide-react';
+import { PlusCircle, MinusCircle, Send } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { OrderItem, MenuItem } from '../types';
 
@@ -10,7 +10,6 @@ export default function NewOrder() {
   const [selectedItem, setSelectedItem] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     fetchMenuItems();
@@ -23,32 +22,32 @@ export default function NewOrder() {
         .select('*')
         .eq('active', true)
         .order('category', { ascending: true });
-
+        console.log(data)
       if (error) throw error;
       setMenuItems(data || []);
     } catch (error) {
       console.error('Error fetching menu items:', error);
       alert('Erro ao carregar o cardápio');
+    } finally {
+      setLoading(false);
     }
   };
-
-  const filteredMenuItems = menuItems.filter(item =>
-    item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.category.toLowerCase().includes(searchTerm.toLowerCase())
-  );
 
   const addItem = () => {
     if (!selectedItem) {
       alert('Por favor selecione um item do cardápio');
       return;
     }
-
+    console.log(selectedItem)
     if (quantity < 1) {
       alert('A quantidade deve ser maior que zero');
       return;
     }
+    console.log(menuItems)
+    menuItems.forEach(item => console.log(item.id));
 
-    const menuItem = menuItems.find(item => item.id === selectedItem);
+    const menuItem = menuItems.find(item => item.id == selectedItem);
+    console.log(menuItem)
     if (!menuItem) {
       alert('Item não encontrado no cardápio');
       return;
@@ -80,20 +79,20 @@ export default function NewOrder() {
       alert('Por favor informe o número da mesa');
       return;
     }
-
+  
     if (items.length === 0) {
       alert('Por favor adicione pelo menos um item ao pedido');
       return;
     }
-
+  
     if (loading) {
       return; // Previne múltiplos envios
     }
-
+  
     try {
       setLoading(true);
       const total = calculateTotal();
-
+  
       const { error } = await supabase
         .from('orders')
         .insert([{
@@ -102,9 +101,9 @@ export default function NewOrder() {
           status: 'pending',
           total: total
         }]);
-
+  
       if (error) throw error;
-
+  
       setTableNumber('');
       setItems([]);
       setSelectedItem('');
@@ -114,7 +113,7 @@ export default function NewOrder() {
       console.error('Error submitting order:', error);
       alert(error.message || 'Erro ao enviar pedido');
     } finally {
-      setLoading(false);
+      setLoading(false); // Garante que o loading seja false após o envio
     }
   };
 
@@ -138,58 +137,43 @@ export default function NewOrder() {
         </div>
 
         <div className="bg-white p-4 rounded-lg shadow-sm">
-          <div className="space-y-4">
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search className="h-5 w-5 text-gray-400" />
-              </div>
-              <input
-                type="text"
-                placeholder="Pesquisar item ou categoria..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-              />
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Item
+              </label>
+              <select
+                value={selectedItem}
+                onChange={(e) => setSelectedItem(e.target.value)}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              >
+                <option value="">Selecione um item</option>
+                {menuItems.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name} - R$ {item.price.toFixed(2)}
+                  </option>
+                ))}
+              </select>
             </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Item
-                </label>
-                <select
-                  value={selectedItem}
-                  onChange={(e) => setSelectedItem(e.target.value)}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                >
-                  <option value="">Selecione um item</option>
-                  {filteredMenuItems.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name} - R$ {item.price.toFixed(2)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Quantidade
-                </label>
-                <input
-                  type="number"
-                  value={quantity}
-                  onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                  min="1"
-                />
-              </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Quantidade
+              </label>
+              <input
+                type="number"
+                value={quantity}
+                onChange={(e) => setQuantity(Math.max(parseInt(e.target.value)))}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                min="1"
+              />
             </div>
           </div>
 
           <button
             type="button"
             onClick={addItem}
-            className="mt-4 w-full flex items-center justify-center py-2 text-blue-600 hover:text-blue-800"
+            className="w-full flex items-center justify-center py-2 text-blue-600 hover:text-blue-800"
           >
             <PlusCircle size={24} className="mr-2" />
             Adicionar ao Pedido
